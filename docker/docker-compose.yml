@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sequi
+      POSTGRES_USER: sequi
+      POSTGRES_PASSWORD: sequi
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sequi -d sequi"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  srs:
+    image: ossrs/srs:5
+    restart: unless-stopped
+    ports:
+      - "1935:1935"   # RTMP ingest (OBS → SRS)
+      - "8080:8080"   # HLS output
+      - "1985:1985"   # SRS HTTP API (viewer count polling)
+    volumes:
+      - ./srs.conf:/usr/local/srs/conf/docker.conf:ro
+    # SRS нужен backend для валидации hook-ов.
+    # При локальной разработке backend запускается отдельно (не в compose),
+    # поэтому hook URLs в srs.conf указывают на host.docker.internal.
+
+  backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    env_file:
+      - ../.env
+    environment:
+      # Внутри Docker postgres доступен по имени сервиса, не localhost
+      DB_DSN: postgres://sequi:sequi@postgres:5432/sequi?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      srs:
+        condition: service_started
+    volumes:
+      - uploads_data:/app/uploads
+
+  # frontend запускается отдельно через `npm run dev` во время разработки.
+  # В production-like сборке backend раздаёт статику SPA.
+
+volumes:
+  postgres_data:
+  uploads_data:

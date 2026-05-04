@@ -1,0 +1,18 @@
+# Документация
+docs/
+documentation/
+
+# Переменные окружения
+.env
+
+# macOS
+.DS_Store
+
+# Go
+*.exe
+*.test
+/bin/
+
+# Node / Frontend
+web/node_modules/
+web/dist/
